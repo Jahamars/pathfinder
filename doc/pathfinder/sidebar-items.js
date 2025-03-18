@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["find_path","main"],"struct":["Point"]};
