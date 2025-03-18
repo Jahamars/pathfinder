@@ -1,14 +1,11 @@
 name: Rust CI/CD
-
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-
 env:
   CARGO_TERM_COLOR: always
-
 jobs:
   test:
     name: Test
@@ -79,7 +76,7 @@ jobs:
         with:
           name: debian-package
           path: target/debian/*.deb
-
+  
   release:
     name: Release
     needs: [package]
