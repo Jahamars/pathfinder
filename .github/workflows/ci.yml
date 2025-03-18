@@ -1,108 +1,100 @@
-name: Rust CI/CD
+name: PathFinder CI
+
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+
 env:
   CARGO_TERM_COLOR: always
+
 jobs:
-  test:
-    name: Test
+  build:
+    name: Build and Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
+          components: rustfmt, clippy
+      
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+      
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      
+      - name: Clippy check
+        run: cargo clippy -- -D warnings
+      
       - name: Build
         run: cargo build --verbose
+      
       - name: Run tests
         run: cargo test --verbose
-  
+      
+      - name: Generate documentation
+        run: cargo doc --no-deps
+
   coverage:
-    name: Code coverage
+    name: Code Coverage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - name: Install tarpaulin
-        run: cargo install cargo-tarpaulin
-      - name: Run cargo-tarpaulin
-        run: cargo tarpaulin --out Xml
+          components: llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+      
+      - name: Generate code coverage
+        run: cargo llvm-cov --lcov --output-path lcov.info
+      
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
+        with:
+          file: lcov.info
+          fail_ci_if_error: false
   
-  lints:
-    name: Lints
+  release-build:
+    name: Release Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          components: rustfmt, clippy
-      - name: Run rustfmt
-        run: cargo fmt --all -- --check
-      - name: Run clippy
-        run: cargo clippy -- -D warnings
-  
-  package:
-    name: Package
-    needs: [test, lints]
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - name: Install cargo-deb
-        run: cargo install cargo-deb
-      - name: Build Debian package
-        run: cargo deb
-      - name: Upload Debian package
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build in release mode
+        run: cargo build --release
+
+      - name: Upload release build artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: debian-package
-          path: target/debian/*.deb
+          name: pathfinder-release
+          path: target/release/pathfinder
+          retention-days: 5
   
-  release:
-    name: Release
-    needs: [package]
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+  cross-platform:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
-      - uses: actions/download-artifact@v3
-        with:
-          name: debian-package
-          path: ./debian-package
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ github.run_number }}
-          release_name: Release v${{ github.run_number }}
-          draft: false
-          prerelease: false
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./debian-package/*.deb
-          asset_name: myproject_${{ github.run_number }}.deb
-          asset_content_type: application/vnd.debian.binary-package
+      - uses: actions/checkout@v3
+      
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Build
+        run: cargo build
+      
+      - name: Run tests
+        run: cargo test
