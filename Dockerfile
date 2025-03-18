@@ -1,14 +1,19 @@
-# Используем официальный образ Rust
-FROM rust:latest
+FROM rust:1.83 as builder
 
-# Устанавливаем рабочую директорию внутри контейнера
 WORKDIR /app
 
-# Копируем все файлы проекта в контейнер
-COPY . .
+COPY Cargo.toml Cargo.lock ./
 
-# Компилируем проект в режиме release
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+RUN cargo build --release && rm -rf src target
+
+COPY . .
 RUN cargo build --release
 
-# Указываем команду для запуска программы
-CMD ["./target/release/pathfinder"]
+FROM debian:bullseye-slim
+
+WORKDIR /app
+
+COPY --from=builder /app/target/release/pathfinder .
+
+CMD ["./pathfinder"]

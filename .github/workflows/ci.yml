@@ -1,136 +1,41 @@
-name: PathFinder CI
+name: Rust CI
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   pull_request:
-    branches: [ main ]
-
-env:
-  CARGO_TERM_COLOR: always
+    branches:
+      - main
 
 jobs:
   build:
-    name: Build and Test
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          components: rustfmt, clippy
-      
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-      
-      - name: Check formatting
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-      
-      - name: Clippy check
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
-      
-      - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --verbose
-      
-      - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --verbose
-      
-      - name: Generate documentation
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --no-deps
+      - name: Checkout репозитория
+        uses: actions/checkout@v4
 
-  coverage:
-    name: Code Coverage
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          components: llvm-tools-preview
+      - name: Установка Rust
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
-      
-      - name: Generate code coverage
-        run: cargo llvm-cov --lcov --output-path lcov.info
-      
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+      - name: Кеширование зависимостей Cargo
+        uses: actions/cache@v3
         with:
-          file: lcov.info
-          fail_ci_if_error: false
-  
-  release-build:
-    name: Release Build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - name: Сборка проекта
+        run: cargo build --release
 
-      - name: Build in release mode
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release
+      - name: Запуск тестов
+        run: cargo test
 
-      - name: Upload release build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: pathfinder-release
-          path: target/release/pathfinder
-          retention-days: 5
-  
-  cross-platform:
-    name: Build on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      
-      - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-      
-      - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+      - name: Проверка форматирования кода
+        run: cargo fmt -- --check
+
+      - name: Проверка статического анализа (Clippy)
+        run: cargo clippy -- -D warnings
