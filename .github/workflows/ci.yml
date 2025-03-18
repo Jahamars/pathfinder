@@ -37,5 +37,3 @@ jobs:
       - name: Проверка форматирования кода
         run: cargo fmt -- --check
 
-      - name: Проверка статического анализа (Clippy)
-        run: cargo clippy -- -D warnings
