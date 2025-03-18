@@ -2,5 +2,38 @@
 name = "pathfinder"
 version = "0.1.0"
 edition = "2021"
+authors = ["Jahongir jahamarsi@gmail.com"]
+description = "Решение задачи о поиске пути в лабиринте"
+default-run = "pathfinder"
+# Отдельные профили для production и development окружений
+[profile.dev]
+opt-level = 0
+debug = true
+debug-assertions = true
+overflow-checks = true
+lto = false
+
+[profile.release]
+opt-level = 3
+debug = false
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"
 
 [dependencies]
+clap = { version = "4.4", features = ["derive"] }  # Для парсинга аргументов командной строки
+rand = "0.8"
+
+[dev-dependencies]
+criterion = "0.5"  # Для бенчмарков
+coverage-helper = "0.2"  # Для помощи с отчетами о покрытии
+
+[[bin]]
+name = "pathfinder"
+path = "src/main.rs"
+
+# Собственные цели сборки
+[[bin]]
+name = "generate_maze"
+path = "src/bin/generate_maze.rs"

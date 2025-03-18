@@ -1,17 +1,74 @@
-name: CI
-on: [push, pull_request]
+name: Rust CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
-  build:
+  test:
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
+      - uses: actions-rs/toolchain@v1
         with:
+          profile: minimal
           toolchain: stable
+          override: true
       - name: Build
-        run: cargo build --release
-      - name: Test
-        run: cargo test
-      - name: Generate Docs
-        run: cargo doc
+        run: cargo build --verbose
+      - name: Run tests
+        run: cargo test --verbose
+  
+  coverage:
+    name: Code coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Install tarpaulin
+        run: cargo install cargo-tarpaulin
+      - name: Run cargo-tarpaulin
+        run: cargo tarpaulin --out Xml
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+  
+  lints:
+    name: Lints
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+      - name: Run rustfmt
+        run: cargo fmt --all -- --check
+      - name: Run clippy
+        run: cargo clippy -- -D warnings
+  
+  package:
+    name: Package
+    needs: [test, lints]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Install cargo-deb
+        run: cargo install cargo-deb
