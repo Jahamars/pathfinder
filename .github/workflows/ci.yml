@@ -1,39 +1,103 @@
-name: Rust CI
+name: Rust CI/CD
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  test:
+    name: Test
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout репозитория
-        uses: actions/checkout@v4
+      # Шаг 1: Получение кода из репозитория
+      - uses: actions/checkout@v3
 
-      - name: Установка Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Кеширование зависимостей Cargo
-        uses: actions/cache@v3
+      # Шаг 2: Установка Rust (stable)
+      - uses: actions-rs/toolchain@v1
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          profile: minimal
+          toolchain: stable
+          override: true
 
-      - name: Сборка проекта
-        run: cargo build --release
+      # Шаг 3: Сборка проекта
+      - name: Build project
+        run: cargo build --verbose
 
-      - name: Запуск тестов
-        run: cargo test
+      # Шаг 4: Запуск тестов
+      - name: Run tests
+        run: cargo test --verbose
 
-      - name: Проверка форматирования кода
-        run: cargo fmt -- --check
+  coverage:
+    name: Code coverage
+    runs-on: ubuntu-latest
+    steps:
+      # Шаг 1: Получение кода из репозитория
+      - uses: actions/checkout@v3
 
+      # Шаг 2: Установка Rust (stable)
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      # Шаг 3: Установка cargo-tarpaulin для измерения покрытия кода
+      - name: Install tarpaulin
+        run: cargo install cargo-tarpaulin
+
+      # Шаг 4: Запуск cargo-tarpaulin для генерации отчёта о покрытии
+      - name: Run cargo-tarpaulin
+        run: cargo tarpaulin --out Xml
+
+      # Шаг 5: Загрузка отчёта о покрытии в Codecov
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+
+  lints:
+    name: Lints
+    runs-on: ubuntu-latest
+    steps:
+      # Шаг 1: Получение кода из репозитория
+      - uses: actions/checkout@v3
+
+      # Шаг 2: Установка Rust (stable) с компонентами rustfmt и clippy
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+
+      # Шаг 3: Проверка форматирования кода с помощью rustfmt
+      - name: Run rustfmt
+        run: cargo fmt --all -- --check
+
+
+  package:
+    name: Package
+    needs: [test, lints]  # Зависит от успешного выполнения тестов и линтеров
+    if: github.ref == 'refs/heads/main'  # Выполняется только для ветки main
+    runs-on: ubuntu-latest
+    steps:
+      # Шаг 1: Получение кода из репозитория
+      - uses: actions/checkout@v3
+
+      # Шаг 2: Установка Rust (stable)
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      # Шаг 3: Установка cargo-deb для создания .deb пакета
+      - name: Install cargo-deb
+        run: cargo install cargo-deb
+
+      # Шаг 4: Сборка .deb пакета
+      - name: Build .deb package
+        run: cargo deb
