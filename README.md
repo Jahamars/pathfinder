@@ -18,8 +18,8 @@
 
 ```bash
 # Клонирование репозитория
-git clone https://github.com/yourusername/maze-solver.git
-cd maze-solver
+git clone https://github.com/jahamars/pathfinder.git
+cd pathfinder
 
 # Сборка проекта
 cargo build
