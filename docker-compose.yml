@@ -1,0 +1,9 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  pathfinder:
+    build: .
+    volumes:
+      - ./examples:/app/examples
+    command: --path /app/examples/maze.txt --format visual
